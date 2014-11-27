@@ -48,6 +48,27 @@ class Edge
 	}
 }
 
+class Listener implements Runnable {
+	Socket socket;
+	BufferedReader reader;
+	
+	public Listener(Socket s, BufferedReader br) {
+		this.socket = s;
+		this.reader = br;
+	}
+	
+	@Override
+	public void run() {
+		try {
+			while (!socket.isClosed()) {
+				int ack = Integer.parseInt(reader.readLine());
+				FTPClient.incrementAck(ack);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} 
+	}
+}
 
 public class FTPClient {
 
@@ -248,6 +269,8 @@ public class FTPClient {
 			int ssthresh = Integer.MAX_VALUE;
 			int RTTcount = 0;
 			
+			Thread t = new Thread(new Listener(socket, reader));
+			t.start();
 			long transferStartTime = System.currentTimeMillis();
 			while (packetNumber < noPackets) {
 				long packetSentTime = System.currentTimeMillis();
@@ -291,7 +314,8 @@ public class FTPClient {
 			socket.close();
 			reader.close();
 			writer.close();
-		} catch (Exception e) { 
+			t.join();
+		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
 			System.out.println("Exit");
