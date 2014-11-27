@@ -71,6 +71,13 @@ public class FTPClient {
 			}
 		}
 	}
+	
+	public static void incrementAck(int ack) {
+		if (ack != -1 && ack > lastAck) {
+			lastAck = ack;
+			System.out.println("Received ack " + ack);
+		}
+	}
 
 	// compute all minDistance from source and
     // populate all destination using dijkstra
@@ -204,7 +211,87 @@ public class FTPClient {
 			System.out.println("Path: " + shortestPath);
 			// send path to server
 			writer.writeBytes(shortestPath.toString() + CRLF);
-		} catch (Exception e) {
+			
+			/* TRANSFER FILE TO SERVER */
+			Scanner scr = new Scanner(System.in);
+			System.out.println("Enter the name of the file to transfer to server");
+			String fileName = scr.next();
+			scr.close();
+			
+			writer.writeBytes(fileName + CRLF);
+			
+			// grab file into byte array
+			RandomAccessFile f = new RandomAccessFile(fileName, "r");
+			byte[] fBytes = new byte[(int) f.length()];
+			f.read(fBytes);
+			f.close();
+			
+			// find noPackets
+			int noPackets = (int) Math.ceil(fBytes.length/1000.0);
+			System.out.println("A total of " + noPackets + " to send.");
+			
+			// inform server of noPackets
+			writer.writeBytes(Integer.toString(noPackets) + CRLF);
+			// partition all the bytes into 1000 chunks and append header
+			byte[][] packets = new byte[noPackets][];
+			for (int i = 0; i < packets.length; i++) {
+				byte[] header = ByteBuffer.allocate(SIZE_OF_HEADER).putInt(i+1).array();
+				byte[] data = Arrays.copyOfRange(fBytes, i*SIZE_OF_DATA, (int) Math.min((i+1)*SIZE_OF_DATA, fBytes.length));
+				packets[i] = new byte[header.length + data.length];
+				System.arraycopy(header, 0, packets[i], 0, header.length);
+				System.arraycopy(data, 0, packets[i], header.length, data.length);
+			}
+			
+			int timeoutInterval = (int) (2*dst.minDistance + 200);
+			int cwnd = 1;
+			int packetNumber = 0;
+			int ssthresh = Integer.MAX_VALUE;
+			int RTTcount = 0;
+			
+			long transferStartTime = System.currentTimeMillis();
+			while (packetNumber < noPackets) {
+				long packetSentTime = System.currentTimeMillis();
+				
+				for (int i = packetNumber; i < Math.min(packetNumber + cwnd, noPackets); i++) {
+					writer.write(packets[i], 0, packets[i].length);
+					System.out.println("Pack number " + (i+1) + " of size " + packets[i].length + " sent");
+				}
+				
+				// polling time to check time out
+				int lastPacketSent = Math.min(packetNumber + cwnd, noPackets);
+				boolean timedOut = false;
+				while (lastAck != lastPacketSent && !timedOut) {
+					long curTime = System.currentTimeMillis();
+					long timePassed = curTime - packetSentTime;
+					if (timePassed > timeoutInterval) {
+						timedOut = true;
+						System.out.println("Timed out at ack " + lastAck);
+					}
+				}
+				// adjust sliding window protocol parameters based on timedOut
+				if (timedOut) {
+					ssthresh = cwnd/2;
+					System.out.println("updated ssthresh: " + ssthresh);
+					cwnd = 1;
+					System.out.println("updated cwnd: " + cwnd);
+					packetNumber = lastAck;
+				} else {
+					cwnd = cwnd >= ssthresh ? cwnd+1 : cwnd*2;
+					System.out.println("updated cwnd: " + cwnd);
+					packetNumber = lastAck;
+				}
+				RTTcount++;
+			}
+			long transferEndTime = System.currentTimeMillis();
+			System.out.println("Total time to send all packets: " + (transferEndTime - transferStartTime)/1000 + " seconds.");
+			System.out.println("Total time in terms of RTT: " + RTTcount + " RTT.");
+			System.out.println(lastAck + " out of " + noPackets + " packets have been sent successfully");
+
+			// clean up resources
+			socket.close();
+			reader.close();
+			writer.close();
+		} catch (Exception e) { 
 			e.printStackTrace();
 		} finally {
 			System.out.println("Exit");
