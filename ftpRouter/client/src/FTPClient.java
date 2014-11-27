@@ -63,6 +63,7 @@ class Listener implements Runnable {
 			while (!socket.isClosed()) {
 				int ack = Integer.parseInt(reader.readLine());
 				FTPClient.incrementAck(ack);
+				Thread.sleep(1);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -290,6 +291,7 @@ public class FTPClient {
 						timedOut = true;
 						System.out.println("Timed out at ack " + lastAck);
 					}
+					Thread.sleep(1);
 				}
 				// adjust sliding window protocol parameters based on timedOut
 				if (timedOut) {
@@ -312,6 +314,7 @@ public class FTPClient {
 
 			// clean up resources
 			socket.close();
+			Thread.sleep(1); // wait for listener thread to complete the iteration
 			reader.close();
 			writer.close();
 			t.join();
