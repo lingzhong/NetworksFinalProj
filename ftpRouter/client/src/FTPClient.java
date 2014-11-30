@@ -12,38 +12,12 @@ import java.util.Scanner;
 import java.util.StringTokenizer;
 import java.util.PriorityQueue;
 import java.util.Collections;
+
 /******************************
  * 
  * zhongli3 (998249177)
  * 
  ******************************/
-
-// The network is represented by a graph, that contains nodes and edges
-class Node implements Comparable<Node> {
-    public final int name;
-    public Edge[] neighbors;
-    public double minDistance = Double.POSITIVE_INFINITY;
-    public Node previous; // to keep the path for backtracking
-
-    public Node(int argName) {
-        this.name = argName;
-    }
-
-    @Override
-    public int compareTo(Node other) {
-        return Double.compare(this.minDistance, other.minDistance);
-    }
-}
-
-class Edge {
-    public final Node target;
-    public final double weight;
-
-    public Edge(Node argTarget, double argWeight) {
-        this.target = argTarget;
-        this.weight = argWeight;
-    }
-}
 
 // solely to receive ACK from server and signal protocal param update
 class Listener implements Runnable {
@@ -69,8 +43,7 @@ class Listener implements Runnable {
     }
 }
 
-class FTPClient {
-
+public class FTPClient {
     static String mode;
     static String host;
     static int port;
@@ -80,7 +53,7 @@ class FTPClient {
     static final int SIZE_OF_HEADER = 4;
     static final int SIZE_OF_DATA = 1000;
 
-    public static void adjacenyToEdges(double[][] matrix, List<Node> v) {
+    public static void adjacenyToEdges(double[][] matrix, List<GraphNode> v) {
         for (int i = 0; i < matrix.length; i++) {
             v.get(i).neighbors = new Edge[matrix.length];
             for (int j = 0; j < matrix.length; j++) {
@@ -98,15 +71,15 @@ class FTPClient {
 
     // compute all minDistance from source and
     // populate all destination using dijkstra
-    public static void computePaths(Node source) {
+    public static void computePaths(GraphNode source) {
         source.minDistance = 0;
-        PriorityQueue<Node> nodeQ = new PriorityQueue<Node>();
-        Node src = source;
+        PriorityQueue<GraphNode> nodeQ = new PriorityQueue<GraphNode>();
+        GraphNode src = source;
         nodeQ.add(src);
         while (!nodeQ.isEmpty()) {
             src = nodeQ.poll();
             for (Edge e : src.neighbors) {
-                Node tar = e.target;
+                GraphNode tar = e.target;
                 double distanceThroughSource = src.minDistance + e.weight;
                 if (distanceThroughSource < tar.minDistance) {
                     nodeQ.remove(tar);
@@ -118,9 +91,9 @@ class FTPClient {
         }
     }
 
-    public static List<Integer> getShortestPathTo(Node target) {
+    public static List<Integer> getShortestPathTo(GraphNode target) {
         List<Integer> path = new ArrayList<Integer>();
-        Node cur = target;
+        GraphNode cur = target;
         while (cur != null) {
             path.add(cur.name);
             cur = cur.previous;
@@ -200,17 +173,17 @@ class FTPClient {
             }
 
             // The nodes are stored in a list, nodeList
-            List<Node> nodeList = new ArrayList<Node>();
+            List<GraphNode> nodeList = new ArrayList<GraphNode>();
             for (int i = 0; i < noNodes; i++) {
-                nodeList.add(new Node(i));
+                nodeList.add(new GraphNode(i));
             }
 
             // Create and populate edges from adjacency matrix
             adjacenyToEdges(matrix, nodeList);
 
             // Finding shortest path from [0] to [noNodes-1]
-            Node src = nodeList.get(0);
-            Node dst = nodeList.get(noNodes - 1);
+            GraphNode src = nodeList.get(0);
+            GraphNode dst = nodeList.get(noNodes - 1);
             computePaths(src);
             List<Integer> shortestPath = getShortestPathTo(dst);
             System.out.print("Total time to reach node " + dst.name + ": "
@@ -289,18 +262,18 @@ class FTPClient {
                 // adjust sliding window protocol parameters based on timedOut
                 if (timedOut) {
                     ssthresh = cwnd / 2;
-                    System.out.println("updated ssthresh: " + ssthresh);
+                    System.out.println("Updated ssthresh: " + ssthresh);
                     cwnd = 1;
-                    System.out.println("updated cwnd: " + cwnd);
+                    System.out.println("Updated cwnd: " + cwnd);
                     packetNumber = lastAck;
                 } else {
                     cwnd = cwnd >= ssthresh ? cwnd + 1 : cwnd * 2;
-                    System.out.println("updated cwnd: " + cwnd);
+                    System.out.println("Updated cwnd: " + cwnd);
                     packetNumber = lastAck;
                 }
                 RTTcount++;
             }
-            
+
             // report performance metrics
             long transferEndTime = System.currentTimeMillis();
             System.out.println("Total time to send all packets: "
